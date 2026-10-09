@@ -6,8 +6,11 @@ A small, polished calculator for everyday math, built as a fast static website. 
 
 - Addition, subtraction, multiplication, division, decimals, unary negatives, and percentages.
 - Parentheses and normal multiplication/division precedence.
+- Expandable scientific keypad with sin/cos/tan and inverse trig, square root, reciprocal, ln/log, absolute value, powers, factorial, π, and e.
+- Selectable degree/radian angle mode, remembered on the current browser.
+- Implicit multiplication for common forms such as `2π` and `2(3 + 4)`.
 - Safe math parser; expressions are parsed as arithmetic and are never passed to `eval()` or `Function()`.
-- Keyboard input: digits and operators, `Enter`/`=` to calculate, `Backspace` to delete, and `Escape` to clear. Shift+8 and Shift+9/0 work for multiplication and parentheses on common keyboard layouts.
+- Keyboard input: digits and operators, `^` for powers, `!` for factorial, `Enter`/`=` to calculate, `Backspace` to delete, and `Escape` to clear. Shift+8 and Shift+9/0 work for multiplication and parentheses on common keyboard layouts.
 - Sign toggle, clear all, delete, live result preview, copy result, and reusable calculation history.
 - Light/dark themes and history persisted in local storage.
 - Responsive layout, semantic controls, screen-reader announcements, strong focus styles, and reduced-motion support.
@@ -49,7 +52,7 @@ Install Node.js if it is not already installed, then run from the project root:
 npm test
 ```
 
-This uses Node's built-in test runner and needs no package installation. The automated suite covers basic arithmetic, precision cleanup, negative values, percentages, precedence and parentheses, parser errors/security, keyboard-to-action mapping, and history/theme persistence. Responsive layout and the actual browser controls require a quick manual check: resize the browser to desktop and phone widths, toggle the theme, calculate, refresh, and confirm the selected theme and history return. Tests are useful, but they do not replace this browser check.
+This uses Node's built-in test runner and needs no package installation. The automated suite covers basic arithmetic, precision cleanup, negative values, percentages, precedence and parentheses, scientific functions in degrees and radians, constants, powers, factorial, parser errors/security, keyboard-to-action mapping, and history/theme persistence. Responsive layout and the actual browser controls require a quick manual check: resize the browser to desktop and phone widths, open the scientific keypad, switch DEG/RAD, calculate, refresh, and confirm the selected angle mode, theme, and history return. Tests are useful, but they do not replace this browser check.
 
 ## Screenshots
 
@@ -88,7 +91,7 @@ The CSS, script, and favicon use relative paths, so they resolve at the reposito
 
 ## Future ideas
 
-- Memory keys and scientific operations with clearly bounded input.
+- Memory keys and additional scientific operations with clearly bounded input.
 - A downloadable/exportable history option.
 - Browser-based end-to-end tests across multiple viewport sizes.
 - Localization and an optional selectable precision setting.

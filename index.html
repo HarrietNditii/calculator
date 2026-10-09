@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f4f6fb" />
-    <meta name="description" content="A fast, accessible calculator that works offline." />
-    <title>Calculator — Clear thinking, calculated</title>
+    <meta name="description" content="An accessible scientific calculator with trigonometry, logarithms, powers, and offline support." />
+    <title>Scientific Calculator — Clear thinking, calculated</title>
     <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="css/style.css" />
     <script type="module" src="js/calculator.js"></script>
@@ -26,7 +26,7 @@
       <section class="intro" aria-labelledby="page-title">
         <p class="eyebrow">A little clarity, by the numbers</p>
         <h1 id="page-title">Calculator<span class="brand-period">.</span></h1>
-        <p class="intro-copy">Thoughtful tools for everyday math.</p>
+        <p class="intro-copy">Everyday arithmetic, with a little extra power.</p>
       </section>
 
       <div class="workspace">
@@ -36,6 +36,31 @@
             <div class="expression" id="expression-display" role="status" aria-live="polite" aria-atomic="true">0</div>
             <div class="result-preview" id="result-preview" aria-hidden="true"></div>
           </div>
+
+          <div class="scientific-toolbar">
+            <button class="scientific-toggle" id="scientific-toggle" type="button" aria-expanded="false" aria-controls="scientific-panel">
+              <span aria-hidden="true">ƒx</span> Scientific <span class="toggle-chevron" aria-hidden="true">⌄</span>
+            </button>
+            <button class="angle-toggle" id="angle-toggle" type="button" aria-label="Angle unit: degrees. Click to switch to radians">DEG</button>
+          </div>
+          <section class="scientific-panel" id="scientific-panel" aria-label="Scientific calculator keys" hidden>
+            <button class="scientific-button" type="button" data-function="sin">sin</button>
+            <button class="scientific-button" type="button" data-function="cos">cos</button>
+            <button class="scientific-button" type="button" data-function="tan">tan</button>
+            <button class="scientific-button" type="button" data-function="asin">sin⁻¹</button>
+            <button class="scientific-button" type="button" data-function="acos">cos⁻¹</button>
+            <button class="scientific-button" type="button" data-function="atan">tan⁻¹</button>
+            <button class="scientific-button" type="button" data-function="sqrt">√x</button>
+            <button class="scientific-button" type="button" data-function="inv">1/x</button>
+            <button class="scientific-button" type="button" data-function="ln">ln</button>
+            <button class="scientific-button" type="button" data-function="log">log</button>
+            <button class="scientific-button" type="button" data-function="abs">|x|</button>
+            <button class="scientific-button" type="button" data-key="!" aria-label="Factorial">x!</button>
+            <button class="scientific-button" type="button" data-key="^2" aria-label="Square">x²</button>
+            <button class="scientific-button" type="button" data-key="^" aria-label="Raise to a power">xʸ</button>
+            <button class="scientific-button" type="button" data-constant="pi" aria-label="Pi">π</button>
+            <button class="scientific-button" type="button" data-constant="e" aria-label="Euler's number">e</button>
+          </section>
 
           <div class="utility-row" aria-label="Calculator utilities">
             <button class="utility-button" type="button" data-action="clear" aria-label="Clear all">AC</button>

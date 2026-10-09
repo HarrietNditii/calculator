@@ -46,6 +46,45 @@ test("parentheses and standard operator precedence are respected", () => {
   assert.equal(evaluateExpression("8 / 2 * (2 + 2)"), 16);
 });
 
+test("scientific functions use degrees by default and support radians", () => {
+  assert.equal(evaluateExpression("sin(30)"), 0.5);
+  assert.equal(evaluateExpression("cos(60)"), 0.5);
+  assert.equal(evaluateExpression("tan(45)"), 1);
+  assert.equal(evaluateExpression("sin(180)"), 0);
+  assert.equal(evaluateExpression("cos(90)"), 0);
+  assert.equal(evaluateExpression("sin(pi / 2)", { angleMode: "RAD" }), 1);
+  assert.equal(evaluateExpression("asin(1)"), 90);
+  assert.equal(evaluateExpression("atan(1)", { angleMode: "RAD" }), Number((Math.PI / 4).toPrecision(14)));
+});
+
+test("scientific logarithms, roots, absolute values, and reciprocals work", () => {
+  assert.equal(evaluateExpression("sqrt(81)"), 9);
+  assert.equal(evaluateExpression("ln(e)"), 1);
+  assert.equal(evaluateExpression("log(1000)"), 3);
+  assert.equal(evaluateExpression("abs(-12)"), 12);
+  assert.equal(evaluateExpression("inv(4)"), 0.25);
+});
+
+test("scientific constants, implicit multiplication, powers, and factorial work", () => {
+  assert.equal(evaluateExpression("2pi"), Number((2 * Math.PI).toPrecision(14)));
+  assert.equal(evaluateExpression("2(3 + 4)"), 14);
+  assert.equal(evaluateExpression("2^3^2"), 512);
+  assert.equal(evaluateExpression("-2^2"), -4);
+  assert.equal(evaluateExpression("(-2)^2"), 4);
+  assert.equal(evaluateExpression("3! + 2^3"), 14);
+  assert.equal(evaluateExpression("π"), Number(Math.PI.toPrecision(14)));
+});
+
+test("scientific functions report domain and factorial errors", () => {
+  assert.throws(() => evaluateExpression("sqrt(-1)"), /real-number range/i);
+  assert.throws(() => evaluateExpression("log(0)"), /real-number range/i);
+  assert.throws(() => evaluateExpression("asin(2)"), /real-number range/i);
+  assert.throws(() => evaluateExpression("tan(90)"), /tangent is undefined/i);
+  assert.throws(() => evaluateExpression("inv(0)"), /real-number range/i);
+  assert.throws(() => evaluateExpression("3.5!"), /factorial requires/i);
+  assert.throws(() => evaluateExpression("sin 30"), /needs a value/i);
+});
+
 test("division by zero and malformed or unsafe expressions show errors", () => {
   assert.throws(() => evaluateExpression("1 / 0"), /divide by zero/i);
   assert.throws(() => evaluateExpression("2 +"), /incomplete|invalid/i);
@@ -58,6 +97,8 @@ test("division by zero and malformed or unsafe expressions show errors", () => {
 test("keyboard keys map to calculator actions", () => {
   assert.deepEqual(getKeyboardAction("7"), { type: "input", value: "7" });
   assert.deepEqual(getKeyboardAction("+"), { type: "input", value: "+" });
+  assert.deepEqual(getKeyboardAction("^"), { type: "input", value: "^" });
+  assert.deepEqual(getKeyboardAction("!"), { type: "input", value: "!" });
   assert.deepEqual(getKeyboardAction("Enter"), { type: "equals" });
   assert.deepEqual(getKeyboardAction("="), { type: "equals" });
   assert.deepEqual(getKeyboardAction("Backspace"), { type: "backspace" });

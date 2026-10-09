@@ -3,10 +3,10 @@ const THEME_KEY = "calculated.theme.v1";
 const MAX_HISTORY_ITEMS = 30;
 
 /**
- * Turn a user-entered expression into a number without executing JavaScript.
- * This small recursive-descent parser supports +, -, *, /, parentheses, and %.
+ * Evaluate supported math with a parser, never by executing it as JavaScript.
+ * Scientific functions receive the current angle mode for trig calculations.
  */
-export function evaluateExpression(source) {
+export function evaluateExpression(source, { angleMode = "DEG" } = {}) {
   if (typeof source !== "string" || source.trim() === "") {
     throw new Error("Enter an expression first.");
   }
@@ -15,6 +15,8 @@ export function evaluateExpression(source) {
   let position = 0;
   const peek = () => tokens[position];
   const take = () => tokens[position++];
+  const functions = new Set(["sin", "cos", "tan", "asin", "acos", "atan", "sqrt", "ln", "log", "abs", "inv"]);
+  const constants = { pi: Math.PI, e: Math.E };
 
   function parseExpression() {
     let value = parseTerm();
@@ -28,8 +30,8 @@ export function evaluateExpression(source) {
 
   function parseTerm() {
     let value = parseUnary();
-    while (peek() === "*" || peek() === "/") {
-      const operator = take();
+    while (peek() === "*" || peek() === "/" || startsImplicitTerm(peek())) {
+      const operator = peek() === "*" || peek() === "/" ? take() : "*";
       const right = parseUnary();
       if (operator === "/" && right === 0) {
         throw new Error("Cannot divide by zero.");
@@ -48,16 +50,59 @@ export function evaluateExpression(source) {
       take();
       return -parseUnary();
     }
-    return parsePostfix();
+    return parsePower();
+  }
+
+  function parsePower() {
+    const base = parsePostfix();
+    if (peek() === "^") {
+      take();
+      return base ** parseUnary();
+    }
+    return base;
   }
 
   function parsePostfix() {
     let value = parsePrimary();
-    while (peek() === "%") {
-      take();
-      value /= 100;
+    while (peek() === "%" || peek() === "!") {
+      const operator = take();
+      if (operator === "%") {
+        value /= 100;
+      } else {
+        if (!Number.isInteger(value) || value < 0 || value > 170) {
+          throw new Error("Factorial requires a whole number from 0 to 170.");
+        }
+        let factorial = 1;
+        for (let factor = 2; factor <= value; factor += 1) factorial *= factor;
+        value = factorial;
+      }
     }
     return value;
+  }
+
+  function startsImplicitTerm(token) {
+    return typeof token === "number" || token === "(" || functions.has(token) || Object.hasOwn(constants, token || "");
+  }
+
+  function applyFunction(name, value) {
+    const radians = angleMode === "DEG" ? value * Math.PI / 180 : value;
+    const cleanTrigResult = (result) => Math.abs(result) < 1e-14 ? 0 : cleanNumber(result);
+    switch (name) {
+      case "sin": return cleanTrigResult(Math.sin(radians));
+      case "cos": return cleanTrigResult(Math.cos(radians));
+      case "tan":
+        if (Math.abs(Math.cos(radians)) < 1e-14) throw new Error("Tangent is undefined at this angle.");
+        return cleanTrigResult(Math.tan(radians));
+      case "asin": return angleMode === "DEG" ? Math.asin(value) * 180 / Math.PI : Math.asin(value);
+      case "acos": return angleMode === "DEG" ? Math.acos(value) * 180 / Math.PI : Math.acos(value);
+      case "atan": return angleMode === "DEG" ? Math.atan(value) * 180 / Math.PI : Math.atan(value);
+      case "sqrt": return Math.sqrt(value);
+      case "ln": return Math.log(value);
+      case "log": return Math.log10(value);
+      case "abs": return Math.abs(value);
+      case "inv": return 1 / value;
+      default: throw new Error("That scientific function is not supported.");
+    }
   }
 
   function parsePrimary() {
@@ -68,6 +113,15 @@ export function evaluateExpression(source) {
         throw new Error("Add a closing parenthesis.");
       }
       return value;
+    }
+    if (typeof token === "string" && Object.hasOwn(constants, token)) return constants[token];
+    if (typeof token === "string" && functions.has(token)) {
+      if (take() !== "(") throw new Error(`${token} needs a value in parentheses.`);
+      const argument = parseExpression();
+      if (take() !== ")") throw new Error("Add a closing parenthesis.");
+      const result = applyFunction(token, argument);
+      if (!Number.isFinite(result)) throw new Error("This value is outside the function's real-number range.");
+      return result;
     }
     if (typeof token === "number") return token;
     throw new Error("That expression is incomplete or invalid.");
@@ -102,8 +156,19 @@ function tokenize(source) {
       continue;
     }
     const character = source[index];
-    if ("+-*/()%".includes(character)) {
+    if ("+-*/()%^!".includes(character)) {
       tokens.push(character);
+      index += 1;
+      continue;
+    }
+    const identifierMatch = rest.match(/^(?:asin|acos|atan|sin|cos|tan|sqrt|log|ln|abs|inv|pi|e)/i);
+    if (identifierMatch) {
+      tokens.push(identifierMatch[0].toLowerCase());
+      index += identifierMatch[0].length;
+      continue;
+    }
+    if (character === "π") {
+      tokens.push("pi");
       index += 1;
       continue;
     }
@@ -123,7 +188,7 @@ export function getKeyboardAction(key, shiftKey = false) {
   if (shiftKey && key === "8") return { type: "input", value: "*" };
   if (shiftKey && key === "9") return { type: "input", value: "(" };
   if (shiftKey && key === "0") return { type: "input", value: ")" };
-  if (/^\d$/.test(key) || [".", "+", "-", "*", "/", "%", "(", ")"].includes(key)) {
+  if (/^\d$/.test(key) || [".", "+", "-", "*", "/", "%", "(", ")", "^", "!"].includes(key)) {
     return { type: "input", value: key };
   }
   if (key === "Enter" || key === "=") return { type: "equals" };
@@ -183,6 +248,9 @@ function initializeCalculator() {
   const clearHistoryButton = document.querySelector("#clear-history");
   const themeButton = document.querySelector("#theme-toggle");
   const copyButton = document.querySelector("#copy-result");
+  const scientificToggle = document.querySelector("#scientific-toggle");
+  const scientificPanel = document.querySelector("#scientific-panel");
+  const angleToggle = document.querySelector("#angle-toggle");
   // Storage access itself can throw in browser privacy modes, so guard the getter too.
   let storage;
   try { storage = window.localStorage; }
@@ -196,6 +264,9 @@ function initializeCalculator() {
   }
   const history = createHistoryStore(storage);
   const theme = createThemeStore(storage);
+  let angleMode = "DEG";
+  try { angleMode = storage.getItem("calculated.angle-mode.v1") === "RAD" ? "RAD" : "DEG"; }
+  catch { /* Degrees remain the predictable default when storage is blocked. */ }
   let expression = "";
   let justCalculated = false;
 
@@ -204,7 +275,7 @@ function initializeCalculator() {
     previewDisplay.textContent = "";
     if (!expression) return;
     try {
-      previewDisplay.textContent = `= ${formatNumber(evaluateExpression(expression))}`;
+      previewDisplay.textContent = `= ${formatNumber(evaluateExpression(expression, { angleMode }))}`;
     } catch {
       // Incomplete input is normal while typing, so keep the preview blank.
     }
@@ -251,11 +322,14 @@ function initializeCalculator() {
     const last = expression.at(-1) || "";
     const isDigit = /^\d$/.test(value);
     if (isDigit || value === ".") {
-      if ((last === ")" || last === "%") && isDigit) expression += "*";
+      if ((last === ")" || last === "%" || last === "!") && isDigit) expression += "*";
       if (value === ".") {
         const trailingNumber = expression.match(/(?:^|[+\-*/(])(-?(?:\d+\.?\d*|\.\d+))$/)?.[1] || "";
         if (trailingNumber.includes(".")) return;
-        if (!trailingNumber) expression += "0";
+        if (!trailingNumber) {
+          if (/[)%!πe]$/.test(expression)) expression += "*";
+          expression += "0";
+        }
       }
       expression += value;
       updateDisplay();
@@ -263,21 +337,24 @@ function initializeCalculator() {
     }
 
     if (value === "(") {
-      if (/\d|\)|%/.test(last)) expression += "*";
+      if (/\d|\)|%|!|π|e/.test(last)) expression += "*";
       expression += value;
     } else if (value === ")") {
       const opens = (expression.match(/\(/g) || []).length;
       const closes = (expression.match(/\)/g) || []).length;
-      if (opens <= closes || !(/[\d)%]$/.test(expression))) return;
+      if (opens <= closes || !(/[\d)%!πe]$/.test(expression))) return;
       expression += value;
     } else if (value === "%") {
-      if (!/[\d)]$/.test(expression)) return;
+      if (!/[\d)!πe]$/.test(expression)) return;
       expression += value;
-    } else if (["+", "-", "*", "/"].includes(value)) {
+    } else if (value === "!") {
+      if (!/[\d)%!]$/.test(expression)) return;
+      expression += value;
+    } else if (["+", "-", "*", "/", "^"].includes(value)) {
       if (!expression && value !== "-") return;
-      if (/[+\-*/]$/.test(expression)) {
+      if (/[+\-*/^]$/.test(expression)) {
         const previous = expression.at(-1);
-        const isUnaryMinus = previous === "-" && (expression.length === 1 || /[+\-*/(]$/.test(expression.slice(0, -1)));
+        const isUnaryMinus = previous === "-" && (expression.length === 1 || /[+\-*/^(]$/.test(expression.slice(0, -1)));
         if (value === "-" && !isUnaryMinus) expression += value;
         else if (isUnaryMinus) {
           if (expression.length === 1) return;
@@ -290,6 +367,37 @@ function initializeCalculator() {
       }
     }
     updateDisplay();
+  }
+
+  function insertFunction(name) {
+    if (justCalculated) {
+      expression = `${name}(${expression})`;
+    } else {
+      if (/[\d)%!]$/.test(expression)) expression += "*";
+      expression += `${name}(`;
+    }
+    justCalculated = false;
+    setMessage(`${name} function inserted. Add a value and close the parenthesis.`);
+    updateDisplay();
+  }
+
+  function insertConstant(name) {
+    if (justCalculated) expression = "";
+    if (/[\d)%!]$/.test(expression)) expression += "*";
+    expression += name === "pi" ? "π" : "e";
+    justCalculated = false;
+    setMessage(`${name === "pi" ? "Pi" : "Euler's number"} inserted.`);
+    updateDisplay();
+  }
+
+  function setAngleMode(nextMode) {
+    angleMode = nextMode;
+    angleToggle.textContent = nextMode;
+    angleToggle.setAttribute("aria-label", `Angle unit: ${nextMode === "DEG" ? "degrees" : "radians"}. Click to switch to ${nextMode === "DEG" ? "radians" : "degrees"}`);
+    try { storage.setItem("calculated.angle-mode.v1", nextMode); }
+    catch { /* The selected unit still takes effect for this visit. */ }
+    updateDisplay();
+    setMessage(`Scientific angles set to ${nextMode === "DEG" ? "degrees" : "radians"}.`);
   }
 
   function toggleSign() {
@@ -314,7 +422,7 @@ function initializeCalculator() {
     if (!expression) return;
     try {
       const original = expression;
-      const result = evaluateExpression(expression);
+      const result = evaluateExpression(expression, { angleMode });
       previousDisplay.textContent = `${original} =`;
       expression = String(result);
       justCalculated = true;
@@ -354,7 +462,7 @@ function initializeCalculator() {
 
   async function copyResult() {
     let text = expression;
-    try { text = formatNumber(evaluateExpression(expression)); } catch { /* Copy the current input if it is not yet a result. */ }
+    try { text = formatNumber(evaluateExpression(expression, { angleMode })); } catch { /* Copy the current input if it is not yet a result. */ }
     if (!text) {
       setMessage("There is nothing to copy yet.", true);
       return;
@@ -379,15 +487,35 @@ function initializeCalculator() {
     }
   }
 
-  document.querySelector(".keypad").addEventListener("click", (event) => {
+  document.querySelector(".calculator-card").addEventListener("click", (event) => {
     const button = event.target.closest("button");
     if (!button) return;
+    if (button.closest("#scientific-panel")) return;
     if (button.dataset.action === "equals") calculate();
     else if (button.dataset.action === "backspace") backspace();
     else if (button.dataset.action === "clear") clearAll();
     else if (button.dataset.action === "sign") toggleSign();
     else if (button.dataset.key) appendInput(button.dataset.key);
   });
+
+  scientificToggle.addEventListener("click", () => {
+    const expanded = scientificToggle.getAttribute("aria-expanded") === "true";
+    scientificToggle.setAttribute("aria-expanded", String(!expanded));
+    scientificPanel.hidden = expanded;
+  });
+
+  scientificPanel.addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    if (button.dataset.function) insertFunction(button.dataset.function);
+    else if (button.dataset.constant) insertConstant(button.dataset.constant);
+    else if (button.dataset.key?.startsWith("^")) {
+      appendInput("^");
+      if (button.dataset.key.length > 1) appendInput(button.dataset.key.slice(1));
+    } else if (button.dataset.key) appendInput(button.dataset.key);
+  });
+
+  angleToggle.addEventListener("click", () => setAngleMode(angleMode === "DEG" ? "RAD" : "DEG"));
 
   document.addEventListener("keydown", (event) => {
     const action = getKeyboardAction(event.key, event.shiftKey);
@@ -416,6 +544,8 @@ function initializeCalculator() {
   copyButton.addEventListener("click", copyResult);
 
   applyTheme(theme.read());
+  angleToggle.textContent = angleMode;
+  angleToggle.setAttribute("aria-label", `Angle unit: ${angleMode === "DEG" ? "degrees" : "radians"}. Click to switch to ${angleMode === "DEG" ? "radians" : "degrees"}`);
   renderHistory();
   updateDisplay();
 }
